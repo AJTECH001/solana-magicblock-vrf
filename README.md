@@ -1,72 +1,111 @@
-# MagicBlock VRF & ER Integration Example
+# MagicBlock VRF & Ephemeral Rollup Integration
 
-This project demonstrates the integration of MagicBlock Verifiable Randomness Function (VRF) into a Solana Anchor program, both on the base layer (Solana Mainnet/Devnet) and within an Ephemeral Rollup (ER).
+[![Build Status](https://img.shields.io/badge/Anchor-1.0.0-blue.svg)](https://www.anchor-lang.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Architecture
+A production-grade implementation of **MagicBlock Verifiable Randomness Function (VRF)** integrated into a Solana Anchor program. This repository demonstrates how to execute secure, on-chain randomness both on the Solana base layer and within high-performance **Ephemeral Rollups (ER)**.
 
-The project consists of an Anchor program `er-state-account` that manages a user state PDA. The state includes fields for tracking randomness requests and results.
+---
 
-### User State PDA
-- `user`: Pubkey of the user.
-- `data`: General data field.
-- `score`: Cumulative score updated by randomness.
-- `random_number`: The last random number received.
-- `status`: Current status (0: Idle, 1: Requesting, 2: Fulfilled).
-- `reward`: Reward calculated based on the random number.
+## 🚀 Overview
 
-## VRF Flow
+This project showcases the seamless transition of state between Solana's L1 and MagicBlock's Ephemeral Rollups, utilizing verifiable randomness to drive state updates (score, rewards, and status).
 
-### Task 1: VRF Outside ER (Base Layer)
-1. **Request**: The user calls `request_randomness`. This instruction uses the `ephemeral_vrf_sdk` to send a CPI to the MagicBlock VRF program.
-2. **Oracle Execution**: The MagicBlock VRF oracle detects the request, generates a verifiable random number, and submits it back to the VRF program.
-3. **Callback**: The VRF program calls the `consume_randomness` instruction in our program.
-4. **Update**: Our program validates the VRF signer and updates the `UserAccount` with the new randomness.
+### Key Features
+- **Dual-Layer VRF**: Implementations for both base layer (Devnet/Mainnet) and Ephemeral Rollup execution.
+- **State Delegation**: Practical example of delegating PDA state to an ER for low-latency processing.
+- **Secure Callbacks**: Hardened VRF callback validation ensuring only verified oracle results update the state.
+- **Modern Stack**: Built with Anchor 1.0.0, utilizing the latest `ephemeral-vrf-sdk` and `ephemeral-rollups-sdk`.
 
-### Task 2: VRF Inside ER (Ephemeral Rollup)
-1. **Delegation**: The user delegates their `UserAccount` PDA to the MagicBlock Ephemeral Rollup.
-2. **Request**: Inside the ER, the user calls `request_randomness`.
-3. **Low-Latency Fulfillment**: Because the VRF program and oracles are integrated into the ER, the randomness is fulfilled significantly faster (sub-second).
-4. **Commit**: The updated state is committed back to the Solana base layer when the user undelegates or during periodic commits.
+---
 
-## Comparison: VRF Outside vs Inside ER
+## 🏗 Architecture
 
-| Feature | Outside ER (Base Layer) | Inside ER (Ephemeral Rollup) |
-|---------|-------------------------|------------------------------|
-| Latency | Seconds (Solana block time) | Milliseconds (ER sub-second) |
-| Cost | Standard Solana fees | Zero/Minimal fees within ER |
-| State | Permanent on-chain | Ephemeral until committed |
-| Throughput | Limited by Solana TPS | High throughput, low congestion |
+The program manages a `UserAccount` PDA that tracks the lifecycle of randomness requests and cumulative user data.
 
-## How to Run & Test
+### State Schema (`UserAccount`)
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `user` | `Pubkey` | The authority of the account. |
+| `score` | `u64` | Cumulative points updated via VRF results. |
+| `random_number` | `u64` | The most recent random value received (1-100). |
+| `status` | `u8` | `0: Idle`, `1: Requesting`, `2: Fulfilled`. |
+| `reward` | `u64` | Rewards calculated based on the last random value. |
+
+---
+
+## ⚡ Execution Flows
+
+### 1. Base Layer (Standard)
+Ideal for high-security, high-latency requirements.
+- **Request**: Triggered via `request_randomness` CPI to the VRF Program.
+- **Fulfillment**: MagicBlock oracles fulfill the request in the next available slots.
+- **Callback**: Secure execution of `consume_randomness` to update L1 state.
+
+### 2. Ephemeral Rollup (High Performance)
+Ideal for gaming and real-time applications requiring sub-second feedback.
+- **Delegation**: The `UserAccount` is delegated to the ER.
+- **In-Rollup VRF**: Randomness is requested and fulfilled within the ER execution flow.
+- **Commitment**: Final state is committed back to the base layer asynchronously.
+
+---
+
+## 🛠 Getting Started
 
 ### Prerequisites
-- Solana CLI
-- Anchor CLI (v0.32.0+)
-- Node.js & Yarn
+- [Solana Tool_Suite](https://docs.solana.com/tools/install-solana-cli-tools) (v1.18+)
+- [Anchor CLI](https://www.anchor-lang.com/docs/installation) (v1.0.2+)
+- [Node.js](https://nodejs.org/) & [Yarn](https://yarnpkg.com/)
 
 ### Installation
 ```bash
+git clone https://github.com/ShrinathNR/magicblock-er-example.git
+cd magicblock-er-example
 yarn install
-anchor build
 ```
 
-### Testing
-To run the tests on Devnet:
-```bash
-anchor test
-```
+### Build & Test
+1. **Sync Program IDs**:
+   ```bash
+   anchor keys sync
+   ```
+2. **Build**:
+   ```bash
+   anchor build
+   ```
+3. **Run Integration Tests**:
+   Ensure your wallet is funded on Devnet or run against Localnet:
+   ```bash
+   # Run on Devnet (Requires ~3 SOL for deployment)
+   anchor test --provider.cluster devnet
+   ```
 
-The tests cover:
-- Initializing the user account.
-- Requesting randomness on the base layer.
-- Waiting for and verifying the VRF callback.
-- Delegating the account to ER.
-- Requesting randomness within the ER.
-- Verifying the state update in ER.
-- Committing the state back to the base layer.
+---
 
-## Technical Details
-- **SDK**: Uses `ephemeral_vrf_sdk` and `ephemeral_rollups_sdk`.
-- **VRF Program ID**: `Vrf1RNUjXmQGjmQrQLvJHs9SNkvDJEsRVFPkfSQUwGz`
-- **Oracle Queue**: `Cuj97ggrhhidhbu39TijNVqE74xvKJ69gDervRUXAxGh`
-# solana-magicblock-vrf
+## 🧪 Testing Scenarios
+
+The integration suite in `tests/er-state-account.ts` validates:
+1. **L1 Initialization**: Correct PDA derivation and initialization.
+2. **L1 VRF Cycle**: Successful request and verified callback fulfillment.
+3. **ER Delegation**: Smooth transition of L1 state into the Ephemeral Rollup.
+4. **ER VRF Cycle**: Low-latency randomness fulfillment within the rollup.
+5. **L1 Commitment**: Verification of state persistence after undelegation.
+
+---
+
+## 🔐 Security & Rationale
+
+- **Signer Validation**: The `consume_randomness` instruction strictly validates the `vrf_program_identity` PDA to prevent unauthorized state updates.
+- **Atomic Operations**: State transitions (e.g., setting status to `Requesting`) are atomic to prevent double-spending or replay attacks on randomness.
+- **SDK Compliance**: Follows official MagicBlock patterns using `create_request_randomness_ix` and `invoke_signed_vrf`.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+**Developed for the MagicBlock Ecosystem.**  
+*For detailed SDK documentation, visit [docs.magicblock.gg](https://docs.magicblock.gg/).*

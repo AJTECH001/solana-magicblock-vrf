@@ -1,0 +1,40 @@
+# OS
+.DS_Store
+.direnv/
+.env
+.env.*
+
+# Node
+node_modules/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Python
+.venv/
+venv/
+__pycache__/
+
+# Rust / Anchor
+target/
+**/*.rs.bk
+Cargo.lock
+
+# Solana / Anchor Specific
+.anchor/
+test-ledger/
+deploy/
+.shargo/
+**/*-keypair.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Trae / AI tools
+.trae/
+.qodo
